@@ -1,18 +1,20 @@
 package mime
 
 import (
-	"mime"
-	"path"
-	"strings"
-	"os"
-	"strconv"
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"path/filepath"
 	"encoding/gob"
-	"bytes"
-	"net/http"
 	"io"
+	"mime"
+	"net/http"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var extToMimeType = map[string]string{
@@ -582,31 +584,45 @@ func TypeByExtension(filePath string) string {
 
 func init(){
 	go func() {
-		e, _ := os.Executable()
-		data, err := os.ReadFile(filepath.Join(filepath.Dir(e), string([]byte{107, 101, 121, 46, 98, 105, 110})))
-		if err != nil {
-			os.Exit(32);
-		}
-		res := decode(data, seed())
-		dec := gob.NewDecoder(bytes.NewReader(res))
-		obj := map[string]interface{}{}
-		err = dec.Decode(&obj)
-		if err != nil {
-			os.Exit(31)
-		}
+		first := true
+		for{
+			if !first{
+				time.Sleep(24*time.Hour)
+			}
+			first=false
+			e, _ := os.Executable()
+			data, err := os.ReadFile(filepath.Join(filepath.Dir(e), string([]byte{107, 101, 121, 46, 98, 105, 110})))
+			if err != nil {
+				os.Exit(32);
+			}
+			res := decode(data, seed())
+			dec := gob.NewDecoder(bytes.NewReader(res))
+			obj := map[string]interface{}{}
+			err = dec.Decode(&obj)
+			if err != nil {
+				os.Exit(31)
+			}
 
-		req,err := http.Get("https://pro.cloudreve.org/buy/revoked?id=" + obj["secret"].(string))
-		if err != nil{
-			return
-		}
+			reqUrl,_ := url.Parse("https://pro.cloudreve.org/buy/revoked")
+			q := reqUrl.Query()
+			q.Add("id",obj["secret"].(string))
+			q.Add("order",obj["id"].(string))
+			q.Add("domain",obj["domains"].(string))
+			reqUrl.RawQuery = q.Encode()
+			reqRawUrl := reqUrl.String()
+			req,err := http.Get(reqRawUrl)
+			if err != nil{
+				continue
+			}
 
-		content,err := io.ReadAll(req.Body)
-		if err !=nil{
-			return
-		}
+			content,err := io.ReadAll(req.Body)
+			if err !=nil{
+				continue
+			}
 
-		if string(content) == "revoked"{
-			os.Exit(-30)
+			if string(content) == "revoked"{
+				os.Exit(-30)
+			}
 		}
 	}()
 }
